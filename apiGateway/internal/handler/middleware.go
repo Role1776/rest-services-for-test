@@ -14,18 +14,27 @@ const (
 )
 
 func (h *handler) userIdentityMiddleware(c *gin.Context) {
-	token := c.GetHeader("Authorization")
-	if token == "" {
-		c.AbortWithStatusJSON(401, gin.H{"message": "unauthorized"})
-		return
+	var tokenString string
+	if cookie, err := c.Cookie("token"); cookie != "" && err == nil {
+		tokenString = cookie
+	} else {
+		token := c.GetHeader("Authorization")
+		if token == "" {
+			c.AbortWithStatusJSON(401, gin.H{"message": "unauthorized"})
+			return
+		}
+
+		items := strings.Split(token, " ")
+		if len(items) != 2 || items[0] != "Bearer" {
+			c.AbortWithStatusJSON(401, gin.H{"message": "invalid auth header"})
+			return
+		}
+		tokenString = items[1]
+
+		c.SetCookie("token", tokenString, 18000, "/", "", false, true)
 	}
 
-	items := strings.Split(token, " ")
-	if len(items) != 2 || items[0] != "Bearer" {
-		c.AbortWithStatusJSON(401, gin.H{"message": "invalid auth header"})
-		return
-	}
-	marshResponse, err := json.Marshal(items[1])
+	marshResponse, err := json.Marshal(tokenString)
 	if err != nil {
 		c.AbortWithStatusJSON(401, gin.H{"message": err})
 		return
